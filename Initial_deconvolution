@@ -15,7 +15,7 @@ source("~/Meaghan-Deploy/diagnostics.R")
 
 
 load("2017.10.16_SCB_BMIQnorm.rdata")
-
+load("genr_pdata.rdata")
 ## combine betas
 load(genr_betas_noob_BMIQ.rdata")
 msorted_betas<- betas(SCB.bm)
@@ -24,7 +24,7 @@ over<- intersect(rownames(msorted_betas), rownames(testbetas))
 combined_betas <- cbind(msorted_betas[over,], testbetas[over,])
 
 pd.sort<- pData(SCB.bm)
-pd.test<- pData(WB.bm)
+pd.test<-genr_pd.noob
 combined_pd <- rbind(data.frame(Sample_Name=rownames(pd.sort), CellType=pd.sort$Tissue,  Array=pd.sort$Sentrix_Position, Slide=pd.sort$Sentrix_ID), 
                      data.frame(Sample_Name=rownames(pd.test), CellType=rep("WB", nrow(pd.test)),  Array=pd.test$Sentrix_Position, Slide=pd.test$Sentrix_ID))
 combined_pd$Study <- c(rep("Ref", times=ncol(msorted_betas)), rep("Val", ncol(testbetas)))
