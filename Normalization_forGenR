@@ -6,15 +6,11 @@ library(sva)
 library(ChAMP)
 library(wateRmelon)
 library(limma)
-
 library(IlluminaHumanMethylation450kmanifest)
-source("~/Meaghan-Deploy/preprocessing.R")
 
-#setwd("PATH")## to the directory with the idats in it
-
-genr_sheet <- read.450k.sheet("~/Code for ref free methods/Minfi") ### replace with the path to the idats and sample sheet, sometimes get an incomplete final line warning, usually not a problem
-genr_rgset <- read.450k.exp(targets=genr_sheet) 
-
+genr_sheet <- read.csv("~/UBC_files/"
+genr_rgset <- read.metharray.exp(targets=genr_sheet, extended=TRUE) 
+source("~/UBC_files/preprocessing.R")
 genr_mset.noob <- preprocess_rgset(genr_rgset, preprocess_method = preprocessNoob)
 genr_betas.noob <- getBeta(genr_mset.noob)
 genr_pd.noob <- pData(genr_mset.noob)
