@@ -19,7 +19,7 @@ load("2017.10.16_SCB_BMIQnorm.rdata")
 ## combine betas
 load(genr_betas_noob_BMIQ.rdata")
 msorted_betas<- betas(SCB.bm)
-testbetas<- betas(WB.bm)
+testbetas<- genr.betas.noob.bmiq
 over<- intersect(rownames(msorted_betas), rownames(testbetas))
 combined_betas <- cbind(msorted_betas[over,], testbetas[over,])
 
