@@ -9,7 +9,7 @@ library(limma)
 library(IlluminaHumanMethylation450kmanifest)
 setwd("/home/040129/UBC_files")
 
-genr_sheet <- read.csv("~/3roundEWAs-AllFiles/samplesSheet.csv/samplesSheet.csv")
+genr_sheet <- read.csv("~/3roundEWAs-AllFiles/samplesSheet.csv")
 genr_sheet$Basename<-sapply(1:nrow(genr_sheet), function(x) paste("/home/040129/3roundEWAs-AllFiles/", genr_sheet$Basename[x], sep=""))
 genr_rgset <- read.metharray.exp(targets=genr_sheet, extended=TRUE) 
 source("~/UBC_files/preprocessing.R")
