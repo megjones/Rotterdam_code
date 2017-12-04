@@ -17,7 +17,7 @@ source("~/Meaghan-Deploy/diagnostics.R")
 load("2017.10.16_SCB_BMIQnorm.rdata")
 
 ## combine betas
-load("~/Code for ref free methods/2017.10.16_WB_BMIQnorm.rdata")
+load(genr_betas_noob_BMIQ.rdata")
 msorted_betas<- betas(SCB.bm)
 testbetas<- betas(WB.bm)
 over<- intersect(rownames(msorted_betas), rownames(testbetas))
