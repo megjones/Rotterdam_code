@@ -162,14 +162,13 @@ for(a in c("facs.pcs.top.sex",
            "uncorrected.top.sex"
 )){
   top<- get(a)
-  hits.table.sex[a, 1]<- length(intersect(rownames(top)[top$adj.P.Val< 0.25], 
+  hits.table.sex[a, 1]<- length(intersect(rownames(top)[top$P.Value< 0.25], 
             rownames(top)[abs(top$db)>0.02]))
   hits.table.sex[a, 2]<- length(intersect( intersect(rownames(top)[top$adj.P.Val< 0.25], 
                                    rownames(top)[abs(top$db)>0.02]),true_hits_sex))
   hits.table.sex[a,3]<- hits.table.sex[a,1]-hits.table.sex[a,2]
-  hits.table.sex[a,4]<- hits.table.sex[1,1]-hits.table.sex[a,2]
-  hits.table.sex[a,5]<- cor(facs.pcs.top.sex$P.Value, top[rownames(facs.pcs.top.sex),"P.Value"], method="spearman", use="pairwise")
-  hits.table.sex[a,6]<- cor(facs.pcs.top.sex[1:1000,"P.Value"], top[rownames(facs.pcs.top.sex[1:1000,]),"P.Value"], method="kendall", use="pairwise")
+  hits.table.sex[a,4]<- cor(sort.ewas.sex.top2$Pvalue, top[rownames(sort.ewas.sex.top2),"P.Value"], method="spearman", use="pairwise")
+  hits.table.sex[a,5]<- cor(sort.ewas.sex.top2[1:1000,"Pvalue"], top[rownames(sort.ewas.sex.top2[1:1000,]),"P.Value"], method="kendall", use="pairwise")
 }
 hits.table.sex$Sensitivity<- hits.table.sex$True_Positives/(hits.table.sex$True_Positives+hits.table.sex$False_Negatives)*100
 hits.table.sex$Specificity<- (nrow(facs.pcs.top.sex)-hits.table.sex$False_Positives-hits.table.sex$False_Negatives-hits.table.sex$True_Positives)/
