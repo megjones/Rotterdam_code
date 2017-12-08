@@ -7,12 +7,13 @@ library("lumi")
 library("methylumi")
 library(RCurl)
 
+setwd("~/ewas3rdround")
 source("deconvolution-utils_noimprovements.R") ## sometimes this gives an error - if so just open it and run the whole thing
 
 load("sorted_pdat_BMIQ_combat_together.rdata")
-load("~/UBC_files/genr_pdata.rdata")
-load("~/UBC_files/genr_betas_noob_BMIQ.rdata")
-load("~/UBC_files/2017.10.16_SCB_BMIQnorm.rdata")
+load("genr_pdata.rdata")
+load("genr_betas_noob_BMIQ.rdata")
+load("2017.10.16_SCB_BMIQnorm.rdata")
 
 pd.sort<- msorted_pd.combat
 pd.test<-genr_pd.noob

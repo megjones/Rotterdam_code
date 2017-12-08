@@ -9,14 +9,15 @@ library(dplyr)
 library("lumi")
 library("methylumi")
 library(RCurl)
+setwd("~/ewas3rdround")
 
-source("~/UBC_files/deconvolution-utils.R") ## sometimes this gives an error - if so just open it and run the whole thing
-source("~/UBC_files/diagnostics.R")
+source("deconvolution-utils.R") ## sometimes this gives an error - if so just open it and run the whole thing
+source("diagnostics.R")
 
 
-load("~/UBC_files/2017.10.16_SCB_BMIQnorm.rdata")
-load("~/UBC_files/genr_pdata.rdata")
-load("~/UBC_files/genr_betas_noob_BMIQ.rdata")
+load("2017.10.16_SCB_BMIQnorm.rdata")
+load("genr_pdata.rdata")
+load("genr_betas_noob_BMIQ.rdata")
 
 colnames(genr.betas.noob.bmiq) <-gsub("/home/040129/3roundEWAs-AllFiles/", "", colnames(genr.betas.noob.bmiq))
 rownames(genr_pd.noob) <-gsub("/home/040129/3roundEWAs-AllFiles/", "", rownames(genr_pd.noob))
@@ -49,11 +50,6 @@ save(msorted_pd.combat, file="sorted_pdat_BMIQ_combat_together.rdata")
 save(validation_pd.combat, file="WB_pdat_BMIQ_combat_together.rdata")
 save(validation_betas.combat, file="WB_betas_BMIQ_combat_together.rdata")
 
-### repeated this bc have to remove invariable probes before deconvolution
-# load("sorted_betas_BMIQ_combat_together.rdata")
-# load("sorted_pdat_BMIQ_combat_together.rdata")
-# load("WB_pdat_BMIQ_combat_together.rdata")
-# load("WB_betas_BMIQ_combat_together.rdata")
 
 
 ### identify invariable probes in GenR
@@ -70,8 +66,8 @@ invar_in_beta_and_independent<-intersect(y$CpG, rownames(Invariable_in_beta)) #1
 
 save(invar_in_beta_and_independent, file="invariable_cordblood_CpGs.Rdata")
 
-msorted_betas.combat<- msorted_betas.combat[which(!(rownames(msorted_betas.combat) %in% invar_in_beta_and_independent)),]
 
+msorted_betas.combat<- msorted_betas.combat[!which(rownames(msorted_betas.combat %in% invar_in_beta_and_independent)),]
 pd.sort<- msorted_pd.combat
 
 CELL_TYPES = c("Gran", "Mono", "Bcell", "CD4T", "CD8T", "nRBC", "NK")

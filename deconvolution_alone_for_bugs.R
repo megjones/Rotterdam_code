@@ -6,15 +6,14 @@ library(dplyr)
 library("lumi")
 library("methylumi")
 library(RCurl)
-
-source("~/UBC_files/deconvolution-utils.R") ## sometimes this gives an error - if so just open it and run the whole thing
-
+setwd("~/ewas3rdround")
+source("deconvolution-utils.R") ## sometimes this gives an error - if so just open it and run the whole thing
 
 
 load("sorted_betas_BMIQ_combat_together.rdata")
  load("sorted_pdat_BMIQ_combat_together.rdata")
  load("WB_pdat_BMIQ_combat_together.rdata")
- load("WB_betas_BMIQ_comabt_outlierremoved.rdata")
+ load("WB_betas_BMIQ_comabt_alloutliersremoved.rdata")
  
  ## remove samples with missing FACS
  validation_betas.combat<-  validation_betas.combat[,!colnames(validation_betas.combat)%in%c("7668610116_R03C01", "7668610134_R02C01", "7668610148_R02C02")]

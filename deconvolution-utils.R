@@ -4,8 +4,6 @@ library(tidyr)
 library(genefilter)
 library(quadprog)
 library(BiocGenerics)
-source("https://bioconductor.org/biocLite.R")
-biocLite("genefilter")
 
 # TODO - If the type doesn't show up, just leave it alone!
 to_canonical_cell_types <- function(v, cell_types, canon_cell_types=c("CD8T","CD4T","NK","Bcell","Mono", "Gran", "nRBC")){

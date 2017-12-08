@@ -1,3 +1,5 @@
+setwd("~/ewas3rdround")
+
 load("WB_betas_BMIQ_comabt_alloutliersremoved.rdata")
 load("GenR_cord_deconvolution_predicted_celltypes.rdata")
 load("genr_facs_counts.rdata")

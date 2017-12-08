@@ -8,27 +8,27 @@ library("lumi")
 library("methylumi")
 library(ggridges)
 
-
+setwd("~/ewas3rdround")
 
 
 load("cord_profile.rdata")
-load("/home/projects/genr/ewas3rdround/decon_pcs_corrected_betas.Rdata")
+load("decon_pcs_corrected_betas.Rdata")
 decon_pcs<- adj.residuals
-load("/home/projects/genr/ewas3rdround/decon_corrected_betas.Rdata")
+load("decon_corrected_betas.Rdata")
 decon<- adj.residuals
-load("/home/projects/genr/ewas3rdround/facs_pcs_corrected_betas.Rdata")
+load("facs_pcs_corrected_betas.Rdata")
 facs_pcs<- adj.residuals
-load("/home/projects/genr/ewas3rdround/facs_corrected_betas.Rdata")
+load("facs_corrected_betas.Rdata")
 facs<- adj.residuals
-load("/home/projects/genr/ewas3rdround/adj.residuals_reffreecellmix.Rdata")
-load("/home/projects/genr/ewas3rdround/adj.residuals_refactor.Rdata")
-load("/home/projects/genr/ewas3rdround/adj.residuals_sva.sup.ga.Rdata")
-load("/home/projects/genr/ewas3rdround/adj.residuals_ruv.sex.Rdata")
-load("/home/projects/genr/ewas3rdround/adj.residuals_ruv.ga.Rdata")
-load("/home/projects/genr/ewas3rdround/adj.residuals_sva.unsup.ga.Rdata")
-load("/home/projects/genr/ewas3rdround/adj.residuals_sva.sup.sex.Rdata")
-load("/home/projects/genr/ewas3rdround/adj.residuals_sva.sup.sex.Rdata")
-load("/home/projects/genr/ewas3rdround/adj.residuals_sva.unsup.sex.Rdata")
+load("adj.residuals_reffreecellmix.Rdata")
+load("adj.residuals_refactor.Rdata")
+load("adj.residuals_sva.sup.ga.Rdata")
+load("adj.residuals_ruv.sex.Rdata")
+load("adj.residuals_ruv.ga.Rdata")
+load("adj.residuals_sva.unsup.ga.Rdata")
+load("adj.residuals_sva.sup.sex.Rdata")
+load("adj.residuals_sva.sup.sex.Rdata")
+load("adj.residuals_sva.unsup.sex.Rdata")
 
 for(a in c("facs", 
            "facs_pcs",

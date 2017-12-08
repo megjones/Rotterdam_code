@@ -1,4 +1,4 @@
-
+setwd("~/ewas3rdround")
 
 load("WB_betas_BMIQ_comabt_alloutliersremoved.rdata")
 uncorrected<- validation_betas.combat
@@ -14,8 +14,6 @@ load("adj.residuals.reffreecellmixcorrected_betas_scaled.Rdata")
 refactor<- newbetas
 load("adj.residuals.refactorcorrected_betas_scaled.Rdata")
 reffreecellmix <- newbetas
-load("adj.residuals.ruv.gacorrected_betas_scaled.Rdata")
-ruv.ga <- newbetas
 load("adj.residuals.ruv.gacorrected_betas_scaled.Rdata")
 ruv.ga <- newbetas
 load("adj.residuals.sva.sup.gacorrected_betas_scaled.Rdata")
@@ -131,8 +129,8 @@ for(a in c("facs.pcs.top.ga",
   hits.table.ga[a, 2]<- length(intersect(intersect(rownames(top)[top$adj.P.Val< 0.05], 
                                                     rownames(top)[abs(top$db)>0.02]),true_hits_ga))
   hits.table.ga[a,3]<- hits.table.ga[a,1]-hits.table.ga[a,2]
-  hits.table.ga[a,4]<- cor(sort.ewas.ga.top$Pvalue, top[rownames(sort.ewas.ga.top),"P.Value"], method="spearman", use="pairwise")
-  hits.table.ga[a,5]<- cor(sort.ewas.ga.top[1:1000,"Pvalue"], top[rownames(sort.ewas.ga.top[1:1000,]),"P.Value"], method="kendall", use="pairwise")
+  hits.table.ga[a,4]<- cor(sort.ewas.ga.top2$Pvalue, top[rownames(sort.ewas.ga.top2),"P.Value"], method="spearman", use="pairwise")
+  hits.table.ga[a,5]<- cor(sort.ewas.ga.top2[1:1000,"Pvalue"], top[rownames(sort.ewas.ga.top2[1:1000,]),"P.Value"], method="kendall", use="pairwise")
 }
 hits.table.ga$Sensitivity<- hits.table.ga$True_Positives/(hits.table.ga$True_Positives+hits.table.ga$False_Negatives)*100
 hits.table.ga$Specificity<- (nrow(facs.pcs.top.ga)-hits.table.ga$False_Positives-hits.table.ga$False_Negatives-hits.table.ga$True_Positives)/
