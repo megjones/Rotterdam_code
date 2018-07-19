@@ -1,0 +1,942 @@
+load("~/Cord blood/2018_03_16_Rein_gerv_cord_norm_together_betas.rda")
+load("~/Cord blood/2018_03_16_rein_gerv_cord_allpdats.rda")
+
+library(minfi)
+library(genefilter)
+library(magrittr)
+library(reshape2)
+library(dendextend)
+library(RColorBrewer)
+library(gridExtra)
+library(ggplot2)
+
+colnames(all.bml)<- rownames(all.pda)
+
+any(is.na(all.bml))
+nas <- is.na(all.bml) # Number of probes with at least one no avgbeta
+nnas <- print(sum(rowSums(nas)>=1))
+
+naprobes <- rowSums(nas)>=1
+sum(naprobes)# Number of probes that will be removed 525
+sort.filt<-all.bml[!naprobes,]
+
+## need to subset down to remove the whole bloods
+sorted<- sort.filt[,-which(all.pda$Tissue=="WB" | all.pda$Tissue=="MC")]
+
+all.sort<- all.pda[colnames(sorted),]
+all.sort$Age<- NA
+all.sort[all.sort$Study=="R","Age"]<- "Adult"
+all.sort[is.na(all.sort$Age),"Age"]<- "Cord"
+all.sort$Age<- as.factor(all.sort$Age)
+#all.sort[which(all.sort$Tissue=="Eos"), "Tissue"]<- "G"
+#all.sort[which(all.sort$Tissue=="Neu"), "Tissue"]<- "G"
+all.sort$Tissue<- droplevels(all.sort$Tissue)
+
+
+adult.filt<- sorted[,which(all.sort$Study=="R")]
+dim(adult.filt)
+colnames(adult.filt)
+cord.filt<- sorted[,which(all.sort$Study=="M")]
+colnames(cord.filt)
+all.sort[which(all.sort$Tissue=="Eos"), "Tissue"]<- "G"
+all.sort[which(all.sort$Tissue=="Neu"), "Tissue"]<- "G"
+all.sort$Tissue<- droplevels(all.sort$Tissue)
+adult.pd<- all.sort[colnames(adult.filt),]
+cord.pd<- all.sort[colnames(cord.filt),]
+
+
+## for dendrogram, filter to variable sites only
+Variation<-function(x) {quantile(x, c(0.90), na.rm=T)[[1]]-quantile(x, c(0.1), na.rm=T)[[1]]}
+refrange<-sapply(1:nrow(sort.filt), function(y) Variation(as.numeric(sort.filt[y,]))) #courtesy of Rachel 
+RR <- data.frame(CpG = rownames(sort.filt), IQR = refrange)
+rownames(RR)<- RR$CpG
+var<- RR[RR$IQR>0.1,] ## 343053
+dim(var)
+
+sort.var<- sort.filt[ rownames(var),]
+
+### this is still a lot and usign a variability filter on cord and adult combined is a bit disingenuous, might need a different metric
+
+
+
+dim(all.sort)
+
+#install.packages("dendextend")
+
+#sometimes you may need to adjust the plot sizes, you can use a version of this:
+#par(mar=c(5.1,4.1,4.1, 2.1), cex=.5)
+myColors <- c("cadetblue4", "cadetblue3",
+              "deepskyblue4",  "deepskyblue3",  
+              "green4",  "green3",
+              "darkolivegreen4",  "darkolivegreen3",
+              "brown4",  "brown3",
+              "chocolate3",  "chocolate1",
+              "darkorchid4")
+
+color_possibilities<-c("NK.Adult","NK.Cord",
+                       "B.Adult","B.Cord",
+                       "CD4T.Adult","CD4T.Cord",
+                       "CD8T.Adult","CD8T.Cord",
+                       "G.Adult","G.Cord",
+                       "Mo.Adult","Mo.Cord",
+                       "RBC.Cord")
+
+names(myColors) <- color_possibilities
+#fillscale <- scale_colour_manual(name="interaction(Tissue, Age)",
+#                               values = myColors, drop = T)
+
+#getPalette = colorRampPalette(brewer.pal(9, "Set1"))
+# clusterColour<- function(betas, color,...){
+#   dend <- as.dendrogram(hclust(dist(t(as.matrix(betas)))))
+#   colors_to_use <- color[order.dendrogram(dend)]
+#   if(nlevels(droplevels(colors_to_use)) >= 2 & nlevels(droplevels(colors_to_use)) <= 9){
+#     Set1<-  brewer.pal(n=nlevels(droplevels(colors_to_use)),name="Set1")
+#     colors_to_use <- droplevels(colors_to_use)
+#     levels(colors_to_use) <- Set1
+#     labels_colors(dend) <- as.character(colors_to_use)
+#   } else{
+#     colPal<-  getPalette(n=nlevels(droplevels(colors_to_use)))
+#     colors_to_use <- droplevels(colors_to_use)
+#     levels(colors_to_use) <- colPal
+#     labels_colors(dend) <- as.character(colors_to_use)       
+#   }
+#   plot(dend,...) 
+# }
+
+
+
+betas <-  sorted
+colnames(betas)<- paste(all.sort$Tissue, all.sort$Age, sep=" ")
+
+#clusterColour(betas = betas, color = all.sort$Tissue)
+
+
+dend <- as.dendrogram(hclust(dist(t(as.matrix(betas)))))
+plot(dend)
+colored_bars(cbind(all.sort$Age, all.sort$Tissue), dend)
+
+# bet.filt<- sort.var[,-which(all.pda$Tissue=="WB" | all.pda$Tissue=="MC")]
+# colnames(bet.filt)<- paste(all.sort$Tissue, all.sort$Age, sep=" ")
+# dend <- as.dendrogram(hclust(dist(t(as.matrix(bet.filt)))))
+# plot(dend)
+
+### Silhouette plot - code from Mara
+library(ClassDiscovery)
+
+myColors2 <- c("cadetblue4", "cadetblue3",
+              "deepskyblue4",  "deepskyblue3",  
+              "green4",  "green3",
+              "darkolivegreen4",  "darkolivegreen3",
+              "brown4",  "brown3",
+              "chocolate3",  "chocolate1",
+              "darkorchid4")
+
+color_possibilities2<-c("NK Adult","NK Cord",
+                       "B Adult","B Cord",
+                       "CD4T Adult","CD4T Cord",
+                       "CD8T Adult","CD8T Cord",
+                       "G Adult","G Cord",
+                       "Mo Adult","Mo Cord",
+                       "RBC Cord")
+
+names(myColors2) <- color_possibilities2
+
+
+distMat = dist(t(as.matrix(betas)), "euclidean")
+save(distMat, file="20180427_cord_adult_distance_matrix.rdata")
+
+
+clustering = kmeans(t(as.matrix(betas)), 13)
+clustering = clustering$cluster
+plot(silhouette(clustering, distMat), col = myColors, border = NA) ## this works, but colours wrong and hard to tell which sample is where!
+sil<- silhouette(clustering, distMat) ## Try to extract to do in ggplot
+str(sil)
+sils<- data.frame(sil[1:162,])
+sils$id<- labels(distMat)
+head(sils)
+sils.melt<- melt(sils, id=c("id", "cluster", "neighbor"))
+head(sils.melt)
+sils.melt<- sils.melt[order(sils.melt$value, decreasing=F),]
+sils.melt<- sils.melt[order(sils.melt$cluster, decreasing=F),]
+sils.melt$index<- 1:nrow(sils.melt)
+
+ggplot(sils.melt, aes(index, value, group=cluster, fill=id))+
+  geom_bar(position="dodge", stat="identity")+
+  scale_fill_manual(values=myColors2)+
+  theme_bw()+
+  coord_flip()+
+  ylab("silhouette coefficient")+
+  xlab(NULL)+
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+## can do this with the same tree as in the figure, but it's slightly different bc kmeans tells it 13 clusters.
+clustering2 = cutree(hclust(distMat), k=13)
+sil2<- silhouette(clustering2, distMat) ## Try to extract to do in ggplot
+sils2<- data.frame(sil2[1:162,])
+sils2$id<- labels(distMat)
+sils.melt2<- melt(sils2, id=c("id", "cluster", "neighbor"))
+sils.melt2<- sils.melt2[order(sils.melt2$value, decreasing=F),]
+sils.melt2<- sils.melt2[order(sils.melt2$cluster, decreasing=F),]
+sils.melt2$index<- 1:nrow(sils.melt2)
+
+ggplot(sils.melt2, aes(index, value, group=cluster, fill=id))+
+  geom_bar(position=position_dodge(width=0.5), stat="identity")+
+  scale_fill_manual(values=myColors2)+
+  theme_bw()+
+  coord_flip()+
+  ylab("silhouette coefficient")+
+  xlab(NULL)+
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+
+## Actually, try it with cell types as clusters - this is the correct way
+load("20180427_cord_adult_distance_matrix.rdata")
+
+sil3<- silhouette(as.numeric(all.sort$Tissue), distMat) ## Try to extract to do in ggplot
+sils3<- data.frame(sil3[1:162,])
+sils3$id<- labels(distMat)
+sils.melt3<- melt(sils3, id=c("id", "cluster", "neighbor"))
+sils.melt3<- sils.melt3[order(sils.melt3$value, decreasing=F),]
+sils.melt3<- sils.melt3[order(sils.melt3$cluster, decreasing=F),]
+sils.melt3$index<- 1:nrow(sils.melt3)
+
+ggplot(sils.melt3, aes(index, value, group=cluster, fill=id))+
+  geom_bar(position=position_dodge(width=0.5), stat="identity")+
+  scale_fill_manual(values=myColors2)+
+  theme_bw()+
+  coord_flip()+
+  ylab("silhouette coefficient")+
+  xlab(NULL)+
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+sil4<- silhouette(as.numeric(as.factor(paste(all.sort$Age, all.sort$Tissue))), distMat) ## Try to extract to do in ggplot
+sils4<- data.frame(sil4[1:162,])
+sils4$id<- labels(distMat)
+sils.melt4<- melt(sils4, id=c("id", "cluster", "neighbor"))
+sils.melt4<- sils.melt4[order(sils.melt4$value, decreasing=F),]
+sils.melt4<- sils.melt4[order(sils.melt4$cluster, decreasing=F),]
+sils.melt4$index<- 1:nrow(sils.melt4)
+
+ggplot(sils.melt4, aes(index, value, group=cluster, fill=id))+
+  geom_bar(position=position_dodge(width=0.5), stat="identity")+
+  scale_fill_manual(values=myColors2)+
+  theme_bw()+
+  coord_flip()+
+  ylab("silhouette coefficient")+
+  xlab(NULL)+
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+
+## dendrogram
+dend <- as.dendrogram(hclust(dist(t(as.matrix(betas)))))
+plot(dend)
+  
+#clusterColour(betas = sort.filt[sample(1:nrow(sort.filt), 10000, replace=F),], color = all.sort$Tissue, leaf=all.sort$Age)
+
+
+pca<- prcomp(t(sorted), center=T, scale=F)
+scores<- pca$x
+
+
+## calculate variance accounted for
+vars <- pca$sdev^2
+Importance<-round(vars/sum(vars), 3)
+Importance[1:6]# 0.372 0.143 0.107 0.079 0.060 0.038
+
+sco<- cbind(id=as.factor(rownames(scores)), scores[,1:8], all.sort[,c("Age","Tissue")])
+scores.melt<- melt(sco, id.var=c("id", "Age", "Tissue"))
+scores.cast<- dcast(scores.melt, id+Age+Tissue~variable, value.var="value")
+
+ggplot(scores.cast, aes(PC1, PC2, colour=interaction(Tissue, Age)))+
+     geom_text(aes(label=paste(Tissue, Age)))
+
+
+pc12<- ggplot(scores.cast, aes(PC1, PC2, colour=interaction(Tissue, Age)))+
+  geom_text(aes(label=paste(Tissue, Age)))+
+  theme_bw()+
+  scale_colour_manual(values=myColors)+
+  theme(legend.position="none")
+pca34<- ggplot(scores.cast, aes(PC3, PC4, colour=interaction(Tissue, Age)))+
+  geom_text(aes(label=paste(Tissue, Age)))+
+  theme_bw()+
+  scale_colour_manual(values=myColors)+
+  theme(legend.position="none")
+pca56<- ggplot(scores.cast, aes(PC5, PC6, colour=interaction(Tissue, Age)))+
+  geom_text(aes(label=paste(Tissue, Age)))+
+  theme_bw()+
+  scale_colour_manual(values=myColors)+
+  theme(legend.position="none")
+
+str(pca)
+
+## replicate with points
+pc12<- ggplot(scores.cast, aes(PC1, PC2, colour=interaction(Tissue, Age)))+
+  geom_point(aes(shape=Age), size=3)+
+  theme_bw()+
+  scale_colour_manual(values=myColors)+
+  theme(legend.position="none")
+pca34<- ggplot(scores.cast, aes(PC3, PC4, colour=interaction(Tissue, Age)))+
+  geom_point(aes(shape=Age), size=3)+
+  theme_bw()+
+  scale_colour_manual(values=myColors)+
+  theme(legend.position="none")
+pca56<- ggplot(scores.cast, aes(PC5, PC6, colour=interaction(Tissue, Age)))+
+  geom_point(aes(shape=Age), size=3)+
+  theme_bw()+
+  scale_colour_manual(values=myColors)+
+  theme(legend.position="none")
+
+# pca78<- ggplot(scores.cast, aes(PC7, PC8, colour=interaction(Tissue, Age)))+
+#   geom_text(aes(label=paste(Tissue, Age)))+
+#   theme_bw()+
+#   scale_colour_manual(values=myColors)+
+#   theme(legend.position="none")
+
+
+
+grid.arrange(pc12, pca34, pca56,   nrow=1)
+
+## stat test for PC scores
+library(dplyr)
+
+all.sort$Lineage<- recode(all.sort$Tissue, "G"="M", "CD4T"="L","B"="L" , "CD8T"="L",    "Mo"="M",   "NK"="L",   "RBC"="M" )
+t.test(scores[,"PC1"]~all.sort$Lineage) #p<2.2e-16
+t.test(scores[,"PC2"]~all.sort$Age) #p<2.2e-16
+plot(all.sort$Age, scores[,"PC2"])
+tes<- aov(scores[,"PC3"]~all.sort$Tissue*all.sort$Age)
+summary(tes)
+TukeyHSD(tes) ## coll but maybe not relevant unless the reviewer asks
+
+
+## distribution plot
+
+
+cord.colours<- myColors[grep("Cord", names(myColors))]
+names(cord.colours)<- c("NK", "Bcell", "CD4T", "CD8T", "Gran", "Mono", "nRBC")
+
+load("~/Cord blood/2014.09.16SCB_swan_combat.RData")
+chipCol <- rainbow(nlevels(factor(SCB.swan.bat$Sentrix_Position)))[as.numeric(factor(SCB.swan.bat$Sentrix_Position))]
+pData(SCB.swan.bat)$Tissue
+
+SCB.sortedonly<- SCB.swan.bat[,-which(pData(SCB.swan.bat)$Tissue=="WB" | pData(SCB.swan.bat)$Tissue=="CBMC")]
+celltype<- recode(pData(SCB.sortedonly)$Tissue, "B"="Bcell","G"= "Gran","Mo"=  "Mono","RBC"= "nRBC")
+celltype2<- droplevels(celltype)
+levels(celltype2)<- cord.colours[levels(celltype2)]
+celltype2<- as.character(celltype2)
+
+dim(SCB.sortedonly)  
+density(SCB.swan.bat)
+density(SCB.sortedonly,na.rm=TRUE, legend=FALSE, col=celltype2, lty=1, legendPos=NULL) 
+
+##  N variable sites plot - include mixtures
+adult.mw<- sort.filt[, which(all.pda$Study=="R")]
+cord.mw<- sort.filt[,which(all.pda$Study=="M")]
+pd.ad.rm<- all.pda[which(all.pda$Study=="R"),]
+pd.co.rm<-  all.pda[which(all.pda$Study=="M"),]
+
+TYPES = levels(pd.co.rm$Tissue)
+
+res <- NULL
+for(ct in TYPES){
+  # Extract CT data
+  adult_idx <- pd.ad.rm$Tissue == ct
+  act_betas <- adult.mw[,adult_idx]
+  cord_idx <- pd.ad.rm$Tissue == ct
+  cct_betas <- cord.mw[,cord_idx]
+  # Calculate Statistic
+  adult_stat <- sum(rowSds(act_betas) > .05)
+  cord_stat <- sum(rowSds(cct_betas) > .05)
+  
+  str <- paste("Cell Type: ", ct, " ",
+               "Adult ",  ": ", adult_stat, " ",
+               "Cord ",  ": ", cord_stat,
+               sep="")
+  print(str)
+  res <- rbind(res, data.frame(Adult=adult_stat, Cord=cord_stat, CellType=ct))
+}
+ #sum(rowSds(cord.filt[,cord.pd$Tissue == ct]) > .05) ## 77888 for nRBCs
+
+
+ 
+ #res$ratio<- res$Adult/res$Cord
+library(ggplot2)
+# ggplot(res, aes(CellType, ratio))+
+#   geom_bar(stat="identity")+
+#   xlab(NULL)+
+#   ylab("Fold difference between number of variable sites in adult and cord")+
+#   theme_bw()
+# 
+# dim(sorted)
+## I prefer absolute - started redoing this to add MC and WB but didn't want to add the extra colours
+
+levels(res$CellType)<- c("B",    "CD4T", "CD8T", "G" ,   "Mo" ,  "NK" ,"MC", "WB", "RBC")
+res[9,]<- c(77888, NA, "RBC")
+res.melt<- melt(res, id="CellType")
+ggplot(res.melt, aes(CellType, value, fill=interaction(CellType, variable)))+
+  geom_bar(stat="identity", position="dodge")+
+  xlab(NULL)+
+  ylab("Number of variable sites in adult and cord")+
+  theme_bw()+
+  scale_fill_manual(values=myColors)+
+  theme(legend.position = "none")
+
+
+## varible sites in MC and WB
+mixtures<- sort.filt[,which(all.pda$Tissue=="WB" | all.pda$Tissue=="MC")]
+pd.mix<- all.pda[colnames(mixtures),]
+pd.mix$Age<- NA
+pd.mix[pd.mix$Study=="R","Age"]<- "Adult"
+pd.mix[is.na(pd.mix$Age),"Age"]<- "Cord"
+pd.mix$Age<- as.factor(pd.mix$Age)
+pd.mix[which(pd.mix$Tissue=="Eos"), "Tissue"]<- "G"
+pd.mix[which(pd.mix$Tissue=="Neu"), "Tissue"]<- "G"
+pd.mix$Tissue<- droplevels(pd.mix$Tissue)
+
+adult.mix<- mixtures[,which(pd.mix$Study=="R")]
+pd.mic.ad<- pd.mix[colnames(adult.mix),]
+cord.mix<- mixtures[,which(pd.mix$Study=="M")]
+pd.mix.co<- pd.mix[colnames(cord.mix),]
+
+TYPES = levels(pd.mix$Tissue)
+
+res <- NULL
+for(ct in TYPES){
+  # Extract CT data
+  adult_idx <- pd.mic.ad$Tissue == ct
+  act_betas <- adult.mix[,adult_idx]
+  cord_idx <- pd.mix.co$Tissue == ct
+  cct_betas <- cord.mix[,cord_idx]
+  # Calculate Statistic
+  adult_stat <- sum(rowSds(act_betas) > .05)
+  cord_stat <- sum(rowSds(cct_betas) > .05)
+  
+  str <- paste("Cell Type: ", ct, " ",
+               "Adult ",  ": ", adult_stat, " ",
+               "Cord ",  ": ", cord_stat,
+               sep="")
+  print(str)
+  res <- rbind(res, data.frame(Adult=adult_stat, Cord=cord_stat, CellType=ct))
+}
+
+# [1] "Cell Type: MC Adult : 46381 Cord : 22877"
+# [1] "Cell Type: WB Adult : 42935 Cord : 25910"
+
+### Mike wants EWASes in each cell type between cord and adult
+library(limma)
+library(lumi)
+library(RColorBrewer)
+library(scales)
+
+
+load("~/Cord blood/2018_03_16_Rein_gerv_cord_norm_together_betas.rda")
+load("~/Cord blood/2018_03_16_rein_gerv_cord_allpdats.rda")
+
+identical(rownames(all.pda), colnames(all.bml)) ## TRUE
+colnames(all.bml)<- rownames(all.pda)
+
+any(is.na(all.bml))
+nas <- is.na(all.bml) # Number of probes with at least one no avgbeta
+nnas <- print(sum(rowSums(nas)>=1))
+
+naprobes <- rowSums(nas)>=1
+sum(naprobes)# Number of probes that will be removed 525
+sort.filt<-all.bml[!naprobes,]
+
+subset.pda<- all.pda[all.pda$Study=="M" | all.pda$Study=="R",]
+
+celltypes<- c("B", "CD4T", "CD8T", "G", "Mo", "NK", "MC", "WB")
+
+mvals<- beta2m(sort.filt)
+betas<- sort.filt[,rownames(subset.pda)]
+counts<- data.frame(matrix(NA, nrow=length(celltypes), ncol=1, dimnames=list(celltypes, "N")))
+
+dB<-0.05 #delta beta cutoff
+Pv<-0.000001 #Pvalue cutoff
+
+for(i in celltypes){
+pd<- subset.pda[subset.pda$Tissue==i,]
+data<- mvals[,rownames(pd)]
+mod<- model.matrix(~Study, data=pd)
+fit<- lmFit(data[,rownames(mod)], mod, na.action=na.omit)
+fit<-eBayes(fit)
+topt <- topTable(fit, coef=c("StudyR"), adjust="BH", number=Inf) # all significant hits
+bet<- betas[rownames(topt),rownames(pd)]
+topt$db<- rowMeans(bet[,pd$Study=="R"])-rowMeans(bet[,pd$Study=="M"])
+save(topt, file=paste(i, "adultvscord_toptable.rdata", sep="_"))
+counts[i,1]<- length(intersect(rownames(topt)[topt$P.Value< 0.0000001], rownames(topt)[abs(topt$db)>0.1]))
+}
+
+save(counts, file="nprobes_dm_celltypes_cordvsadult.rdata")
+for(i in celltypes){
+  load(paste(i,  "adultvscord_toptable.rdata", sep="_"))
+volcano<-data.frame(Adjusted_Pvalue=topt$adj.P.Val,pval=topt$P.Value, Delta_Beta=topt$db)
+color3<-sapply(1:nrow(volcano), function(x) if(volcano$pval[x]<=Pv){
+  if(abs(volcano$Delta_Beta[x])>dB){
+    if(volcano$Delta_Beta[x]>dB){"Increased Methylation\n(with Potential Biological Impact)"}else{"Decreased Methylation\n (with Potential Biological Impact)"}
+  }else{if(volcano$Delta_Beta[x]>0){"Increased Methylation"}else{"Decreased Methylation"}}}else{"Not Significantly Different"})
+
+volcano$Interesting_CpG3<-color3
+
+#omg
+ggplot(volcano, aes(Delta_Beta, -log10(pval), color=Interesting_CpG3))+
+  geom_point(shape=19, size=1)+theme_bw()+
+  scale_color_manual(values=c(muted("red", l=80, c=30),"red",muted("blue", l=70, c=40),"blue","grey"))+
+  geom_vline(xintercept=c(-dB,dB), color="grey60")+
+  geom_hline(yintercept=-log10(Pv), color="grey60")+
+  ylab("P Value (-log10)")+
+  xlab("Delta Beta")+
+  xlim(-1, 1)+
+  theme(axis.text = element_text(size =10, color="black"),
+        axis.title = element_text(size =10),
+        legend.position="none" )+
+  ggtitle(i)
+ggsave(file=paste(i, "volcano.png", sep="_"), dpi=600, width=4, height=4, units="in")
+
+}
+
+load("CD4T_adultvscord_toptable.rdata")
+cd4<- topt
+load("CD8T_adultvscord_toptable.rdata")
+cd8<- topt
+load("B_adultvscord_toptable.rdata")
+bcell<- topt
+load("NK_adultvscord_toptable.rdata")
+nk<- topt
+load("G_adultvscord_toptable.rdata")
+gran<- topt
+load("Mo_adultvscord_toptable.rdata")
+mono<- topt
+load("WB_adultvscord_toptable.rdata")
+wb<- topt
+load("MC_adultvscord_toptable.rdata")
+mc<- topt
+
+pvals<- melt(data.frame("CD4T"=cd4$P.Value, 
+                        "CD8T"=cd8$P.Value, 
+                        "Bcell"=bcell$P.Value,
+                        "NK"=nk$P.Value,
+                        "Gran"=gran$P.Value,
+                        "Mono"=mono$P.Value,
+                        "WB"=wb$P.Value,
+                        "MC"=mc$P.Value))
+ggplot(pvals, aes(value))+
+  geom_histogram()+
+  facet_wrap(~variable)+
+  theme_bw()
+
+
+
+
+venn<- list(
+  CD4T=rownames(cd4)[cd4$P.Value< 0.0000001&abs(cd4$db)>0.1], 
+  CD8T=rownames(cd8)[cd8$P.Value< 0.0000001&abs(cd8$db)>0.1],
+  G=rownames(gran)[gran$P.Value< 0.0000001&abs(gran$db)>0.1],
+  NK=rownames(nk)[nk$P.Value< 0.0000001&abs(nk$db)>0.1],
+  Mo=rownames(mono)[mono$P.Value< 0.0000001&abs(mono$db)>0.1],
+  B=rownames(bcell)[bcell$P.Value< 0.0000001&abs(bcell$db)>0.1]
+)  
+save(venn, file="all_cells_topt_hit_lists.rdata")
+
+
+
+# str(venn)
+# 
+# library(VennDiagram)
+# venn.diagram(venn, filename = "allcells_venn", height = 3, width = 3, resolution =
+#                600, imagetype = "png", units = "in")
+
+length(intersect(venn[["mono"]], venn[["gran"]]))
+length(venn[["mono"]])
+cells<- celltypes[1:6]
+bardata<- data.frame(matrix(0, nrow=length(cells), ncol=4, dimnames=list(cells, c("common", "Lymphoid","Myeloid", "unique"))))
+
+bardata[,"common"]<- length(intersect(venn[[1]], 
+                                      intersect( venn[[2]], 
+                                      intersect(venn[[3]], 
+                                      intersect(venn[[4]], 
+                                      intersect(venn[[5]], venn[[6]]))))))
+bardata[c("Mo", "G"),"Myeloid"]<- length(intersect(venn[["Mo"]], venn[["G"]]))-bardata[1,"common"]
+bardata[c("B", "CD4T", "CD8T", "NK"),"Lymphoid"]<- length(intersect(venn[["CD8T"]], 
+                                                                   intersect(venn[["CD4T"]], 
+                                                                   intersect(venn[["NK"]],venn[["B"]]))))-bardata[1,"common"]
+
+length(intersect(venn[["CD8T"]], venn[["CD4T"]]))-bardata[1,"common"]-bardata[1,"Lymphoid"]# 2086 t cell specific
+
+bardata["B", "unique"]<- length(venn[["B"]])-bardata[1,"common"]-bardata[1,"Lymphoid"]
+bardata["CD4T", "unique"]<- length(venn[["CD4T"]])-bardata[1,"common"]-bardata[1,"Lymphoid"]
+bardata["CD8T", "unique"]<- length(venn[["CD8T"]])-bardata[1,"common"]-bardata[1,"Lymphoid"]
+bardata["G", "unique"]<- length(venn[["G"]])-bardata[1,"common"]-bardata[4,"Myeloid"]
+bardata["Mo", "unique"]<- length(venn[["Mo"]])-bardata[1,"common"]-bardata[4,"Myeloid"]
+bardata["NK", "unique"]<- length(venn[["NK"]])-bardata[1,"common"]-bardata[1,"Lymphoid"]
+
+save(bardata, file="overlap_probes_data.rdata")
+load("overlap_probes_data.rdata")
+
+bar.melt<- melt(cbind(id=rownames(bardata), bardata), id="id")
+bar.melt$variable<- factor(bar.melt$variable, levels=c("unique", "Myeloid", "Lymphoid", "common"))
+bar.melt$id<- factor(bar.melt$id, levels=c("CD4T", "CD8T", "B", "NK", "Mo", "G"))
+
+ggplot(bar.melt, aes(id, value, fill=variable))+
+  geom_bar(stat="identity")+
+  theme_bw()
+
+
+overlaps<- data.frame(matrix(0, nrow=length(cells), ncol=length(cells), dimnames=list(cells, cells)))
+for(i in cells){
+  for(j in cells){
+    overlaps[i,j]<- length(intersect(venn[[i]], venn[[j]]))
+    
+  }
+}
+save(overlaps, file="overlap_numbers.rdata")
+
+## overlaps for MC and WB
+mix.list<-list(MC=rownames(mc)[mc$P.Value< 0.0000001&abs(mc$db)>0.1],
+WB=rownames(wb)[mc$P.Value< 0.0000001&abs(wb$db)>0.1])
+mixed<- c("WB", "MC")
+save(mix.list, file="mixed_cells_topt_hit_lists.rdata")
+
+mixes<- data.frame(matrix(0, ncol=length(cells), nrow=2, dimnames=list( c("WB", "MC"), cells)))
+
+
+for(i in cells){
+  for(j in mixed){
+    mixes[j,i]<- length(intersect(mix.list[[j]], venn[[i]]))
+  }
+}
+
+save(mixes, file="mixture_cordvsadult_overlaps_with_sorted.rdata")
+mixes<- mixes- length(intersect(venn[[1]], 
+                 intersect( venn[[2]], 
+                            intersect(venn[[3]], 
+                                      intersect(venn[[4]], 
+                                                intersect(venn[[5]], 
+                                                          intersect(venn[[6]], 
+                                                                    intersect(mix.list[[1]], mix.list[[2]])))))))) ### 542 overlap in all of them
+
+
+mix.melt<- melt(cbind(id=rownames(mixes), mixes))
+mix.melt$variable<- factor(mix.melt$variable, levels=c("CD4T", "CD8T", "B", "NK", "G", "Mo", "MC", "WB"))
+
+ggplot(mix.melt, aes(variable, value, fill=id))+
+  geom_bar(stat="identity", position="dodge")+
+  theme_bw()
+
+## where are these sites?
+anno<- read.csv("~/All_annotation.csv", header=T, row.names=1)
+anno.filt<- anno[rownames(cd4),]
+load("~/Cord blood/mixed_cells_topt_hit_lists.rdata")
+load("~/Cord blood/all_cells_topt_hit_lists.rdata")
+celltypes<- c("B", "CD4T", "CD8T", "G", "Mo", "NK", "WB", "MC")
+
+allcells<- c(venn, mix.list)
+
+dim(anno)
+colnames(anno)
+
+anno.hits<- list("CD4T"=anno[allcells[["CD4T"]],],
+                 "CD8T"=anno[allcells[["CD8T"]],],
+                 "B"=anno[allcells[["B"]],], 
+                 "NK"=anno[allcells[["NK"]],],
+                 "Mo"=anno[allcells[["Mo"]],],
+                 "G"=anno[allcells[["G"]],],
+                 "MC"=anno[allcells[["MC"]],],
+                 "WB"=anno[allcells[["WB"]],] )
+
+save(anno.hits, file="fdata_allcells_adultvscord_hits.rdata")
+
+islands<- data.frame(matrix(0, nrow=length(names(anno.hits)), ncol=4, dimnames=list(names(anno.hits), levels(anno$HIL_CpG_class))))
+for(i in names(anno.hits)){
+  islands[i,]<- table(anno.hits[[i]]$HIL_CpG_class)
+}
+save(islands, file="allcells_cordvsadulthits_island_classes.rdata")
+
+## background islands
+isl.back<- table(anno.filt$HIL_CpG_class)/nrow(anno.filt)*100 ## HC 32.9, IC 23.8, ICshore 7.14, LC 36.17
+
+islands.scale<- islands/rowSums(islands)*100
+
+islands.melt<- melt(cbind(cells=rownames(islands.scale), islands.scale))
+islands.melt$cells<- factor(islands.melt$cells, levels=c( "CD4T", "CD8T", "B", "NK", "Mo" , "G", "MC" , "WB"))
+
+
+ggplot(islands.melt, aes(variable, value, fill=cells))+
+  geom_bar(stat="identity", position="dodge")+
+  theme_bw()
+
+
+### UCSC refgene group
+group<- data.frame(matrix(0, nrow=length(names(anno.hits)), ncol=6, dimnames=list(names(anno.hits), c("1stExon",   "3'UTR",   "5'UTR",   "Body", "TSS1500",  "TSS200"))))
+for(i in names(anno.hits)){
+  group[i,]<- table(unlist(c(unique(strsplit(as.character(anno.hits[[i]]$UCSC_REFGENE_GROUP), ";")))))
+}
+save(group, file="allcells_cordvsadulthits_refgene_groups.rdata")
+group.back<- table(unlist(c(unique(strsplit(as.character(anno.filt$UCSC_REFGENE_GROUP), ";")))))/sum(table(unlist(c(unique(strsplit(as.character(anno.filt$UCSC_REFGENE_GROUP), ";"))))))*100 ## 1st E 18.4, 3UT 4.1, 5UT 27.2, Body 24.2, 1500 15.8, 200 10.2
+
+group.scale<- group/rowSums(group)*100
+
+group.melt<- melt(cbind(cells=rownames(group.scale), group.scale))
+group.melt$cells<- factor(group.melt$cells, levels=c( "CD4T", "CD8T", "B", "NK", "Mo" , "G", "MC" , "WB"))
+
+ggplot(group.melt, aes(variable, value, fill=cells))+
+  geom_bar(stat="identity", position="dodge")+
+  theme_bw()+
+  theme(legend.position = "none")
+
+## background group 
+table(anno.filt$HIL_CpG_class)/nrow(anno.filt)
+
+## test silhouette plot
+# Mara's code, modified
+makeSilPlot = function(ds){
+  k = max(ds$clustered)
+  original = subset(ds, select = -c(clustered))
+  distMat = dist(original, method="euclidean")
+  clustering = ds$clustered
+  plot(silhouette(clustering, distMat), col = 1:k, border = NA)
+}
+
+### violin plot of distributions?
+
+
+myColors <- c("cadetblue4", "cadetblue3",
+              "deepskyblue4",  "deepskyblue3",  
+              "green4",  "green3",
+              "darkolivegreen4",  "darkolivegreen3",
+              "brown4",  "brown3",
+              "chocolate3",  "chocolate1",
+              "darkorchid4")
+
+color_possibilities<-c("NK.adult","NK.cord",
+                       "B.adult","B.cord",
+                       "CD4T.adult","CD4T.cord",
+                       "CD8T.adult","CD8T.cord",
+                       "G.adult","G.cord",
+                       "Mo.adult","Mo.cord",
+                       "RBC.cord")
+
+names(myColors) <- color_possibilities
+
+
+betas.melt<- melt(data.frame(t(as.data.frame(cbind(cord.filt, adult.filt))),
+                             Age=c(rep("cord", ncol(cord.filt)), rep("adult", ncol(adult.filt))),
+                             Tissue=as.factor(c(as.character(cord.pd$Tissue), as.character(adult.pd$Tissue)))), id=c("Age", "Tissue"))
+ggplot(betas.melt, aes(Tissue, value, fill=Age))+
+  geom_boxplot()
+ggplot(betas.melt, aes(Tissue, value, fill=Age))+
+  geom_boxplot()+
+  theme_bw()
+
+ggplot(betas.melt, aes(Tissue, value,  fill=interaction(Tissue, Age)))+
+  geom_violin()+
+  geom_boxplot(width=0.1, position=position_dodge(0.9))+
+  theme_bw()+
+  scale_fill_manual(values=myColors)
+
+ggplot(betas.melt, aes(value, fill=Age))+
+  geom_density(alpha=0.5)+
+  facet_wrap(~Tissue)
+
+
+## mQTL enrichment testing?
+load("~/Cord blood/all_cells_topt_hit_lists.rdata")
+str(venn)
+overlap_all<- intersect(venn[[1]], 
+                            intersect( venn[[2]], 
+                                       intersect(venn[[3]], 
+                                                 intersect(venn[[4]], 
+                                                           intersect(venn[[5]], venn[[6]])))))
+write.csv(overlap_all, file="588_cordvsadult_CpGs_inallcelltypes.csv")
+overlap_myelpid<- intersect(venn[["Mo"]], venn[["G"]])[! intersect(venn[["Mo"]], venn[["G"]]) %in% overlap_all]
+
+overlap_lymphoid<- intersect(venn[["CD8T"]], 
+                             intersect(venn[["CD4T"]], 
+                                       intersect(venn[["NK"]],venn[["B"]])))[!intersect(venn[["CD8T"]], 
+                                                                                        intersect(venn[["CD4T"]], 
+                                                                                                  intersect(venn[["NK"]],venn[["B"]])))%in% overlap_all]
+length(overlap_lymphoid)
+
+mqtl<-read.delim("~/cord.ALL.M.tab", sep="\t")
+head(mqtl)
+length(unique(mqtl$gene))
+max(mqtl$FDR)
+mqtl.sig<- mqtl[mqtl$p.value<1e-14,] ## this is the p value from the paper, though the number isn't exactly right
+hist(mqtl$FDR)
+length(unique(mqtl.sig$gene))
+
+mqtl.all<- mqtl.sig[mqtl.sig$gene %in% overlap_all,]
+length(unique(mqtl.all$gene))/length(overlap_all)*100 ## 11%
+
+mqtl.my<- mqtl.sig[mqtl.sig$gene %in% overlap_myelpid,]
+length(unique(mqtl.my$gene))/length(overlap_myelpid)*100 ## 11%
+
+mqtl.ly<- mqtl.sig[mqtl.sig$gene %in% overlap_lymphoid,]
+length(unique(mqtl.ly$gene))/length(overlap_lymphoid)*100 ## 9%
+
+cells<- c("B", "CD4T", "CD8T", "G", "Mo", "NK")
+mqtl.summary<- data.frame(matrix(NA, nrow=length(cells), ncol=2, dimnames=list(cells, c("mQTL number", "mQTL percentage"))))
+
+for(i in c("B", "CD4T", "CD8T", "NK")){
+  over<- mqtl.sig[mqtl.sig$gene %in% venn[[i]][!venn[[i]] %in% c(unique(intersect(venn[[i]],overlap_all), intersect(venn[[i]],overlap_lymphoid)))],]
+  mqtl.summary[i,"mQTL.number"]<- length(unique(over$gene))
+  mqtl.summary[i,"mQTL.percentage"]<-mqtl.summary[i,"mQTL.number"]/length(venn[[i]][!venn[[i]] %in% unique(c(intersect(venn[[i]],overlap_all), intersect(venn[[i]],overlap_lymphoid)))])*100 ## 11%
+}
+
+for(i in c("G", "Mo")){
+  over<- mqtl.sig[mqtl.sig$gene %in% venn[[i]][!venn[[i]] %in% c(unique(intersect(venn[[i]],overlap_all), intersect(venn[[i]],overlap_myelpid)))],]
+  mqtl.summary[i,"mQTL.number"]<- length(unique(over$gene))
+  mqtl.summary[i,"mQTL.percentage"]<-mqtl.summary[i,"mQTL.number"]/length(venn[[i]][!venn[[i]] %in% unique(c(intersect(venn[[i]],overlap_all), intersect(venn[[i]],overlap_myelpid)))])*100 ## 11%
+}
+
+mqtl.summary["All",]<- c(length(unique(mqtl.all$gene)), length(unique(mqtl.all$gene))/length(overlap_all)*100)
+mqtl.summary["Myeloid",]<- c(length(unique(mqtl.my$gene)), length(unique(mqtl.my$gene))/length(overlap_myelpid)*100)
+mqtl.summary["Lymphoid",]<- c(length(unique(mqtl.ly$gene)), length(unique(mqtl.ly$gene))/length(overlap_lymphoid)*100)
+
+save(mqtl.summary, file="mQTL_numbers_in_EWAS_results.rdata")
+
+
+## repeat barplot without mQTLs
+bardata
+mqtl.summary
+bard.nomq<- bardata
+
+bard.nomq[,"common"]<- bardata[,"common"]-mqtl.summary["All", "mQTL.number"]
+bard.nomq[c("B", "CD4T", "CD8T", "NK"),"Lymphoid"]<- bard.nomq[c("B", "CD4T", "CD8T", "NK"),"Lymphoid"]-mqtl.summary["Lymphoid", "mQTL.number"]
+bard.nomq[c("Mo", "G"),"Myeloid"]<- bard.nomq[c("Mo", "G"),"Myeloid"]-mqtl.summary["Myeloid", "mQTL.number"]
+
+for(i in c("B", "CD4T", "CD8T", "NK","G", "Mo" )){
+  bard.nomq[i,"unique"]<-bard.nomq[i,"unique"]- mqtl.summary[i, "mQTL.number"]
+}
+
+bar.melt<- melt(cbind(id=rownames(bard.nomq), bard.nomq), id="id")
+bar.melt$variable<- factor(bar.melt$variable, levels=c("unique", "Myeloid", "Lymphoid", "common"))
+bar.melt$id<- factor(bar.melt$id, levels=c("CD4T", "CD8T", "B", "NK", "Mo", "G"))
+
+ggplot(bar.melt, aes(id, value, fill=variable))+
+  geom_bar(stat="identity")+
+  theme_bw()
+
+## remake the N different sites between pairs in cord vs adult using nominal P (Louie had used FDR)
+library(tidyr)
+library(dplyr)
+CELL_TYPES = c("G", "Mo", "B", "CD4T", "CD8T", "RBC", "NK")
+ADULT_CELL_TYPES = c("G", "Mo", "B", "CD4T", "CD8T", "NK")
+
+
+ct_grid <- expand.grid(ADULT_CELL_TYPES, ADULT_CELL_TYPES)
+pairwise_cmps <- NULL
+pval_threshold = .0000001
+fdr_threshold = 0.01
+i<- 14
+for(i in 1:nrow(ct_grid)){
+  ct1 <- as.character(ct_grid[i,1])
+  ct2 <- as.character(ct_grid[i,2])
+  # Skip comparing CT against self. 
+  if(ct1 == ct2) next
+  
+  idx1 <- adult.pd$Tissue == ct1
+  idx2 <- adult.pd$Tissue == ct2
+  data <- cbind(adult.filt[,idx1], adult.filt[,idx2])
+  source <- c(rep(ct1, times=sum(idx1)), rep(ct2, times=sum(idx2))) %>% factor()
+  res <- rowFtests(logit2(data), source)
+  res$Adj<- p.adjust(res$p.value, method="BH")
+  res.sig <- res[res$p.value < pval_threshold,]
+  res.fd<- res[res$Adj < fdr_threshold,]
+  entry <- c(CT1=ct1, CT2=ct2, ndiff.p=nrow(res.sig), P.Val=pval_threshold, ndiff.f=nrow(res.fd), FDR=fdr_threshold) 
+  pairwise_cmps <- rbind(pairwise_cmps, entry)
+}
+#res.adult<- res
+rownames(pairwise_cmps) <- NULL
+adult_results <- data.frame(pairwise_cmps, stringsAsFactors = F)
+adult_results$ndiff.p <- as.numeric(adult_results$ndiff.p)
+adult_results$ndiff.f <- as.numeric(adult_results$ndiff.f)
+
+ct_grid <- expand.grid(CELL_TYPES, CELL_TYPES)
+pairwise_cmps <- NULL
+pval_threshold = .0000001
+
+for(i in 1:nrow(ct_grid)){
+  ct1 <- as.character(ct_grid[i,1])
+  ct2 <- as.character(ct_grid[i,2])
+  # Skip comparing CT against self. 
+  if(ct1 == ct2) next
+  
+  idx1 <- cord.pd$Tissue == ct1
+  idx2 <- cord.pd$Tissue == ct2
+  data <- cbind(cord.filt[,idx1], cord.filt[,idx2])
+  source <- c(rep(ct1, times=sum(idx1)), rep(ct2, times=sum(idx2))) %>% factor()
+  res <- rowFtests(logit2(data), source)
+  res$Adj<- p.adjust(res$p.value, method="BH")
+  res.sig <- res[res$p.value < pval_threshold,]
+  res.fd<- res[res$Adj < fdr_threshold,]
+  entry <- c(CT1=ct1, CT2=ct2, ndiff.p=nrow(res.sig), P.Val=pval_threshold, ndiff.f=nrow(res.fd), FDR=fdr_threshold) 
+  pairwise_cmps <- rbind(pairwise_cmps, entry)
+}
+
+res.cord<- res
+head(res.cord)
+length(which(res.cord$p.value<0.1))
+length(which(res.cord$Adj<0.01))
+
+rownames(pairwise_cmps) <- NULL
+cord_results <- data.frame(pairwise_cmps, stringsAsFactors = F)
+cord_results$ndiff.p <- as.numeric(cord_results$ndiff.p)
+cord_results$ndiff.f <- as.numeric(cord_results$ndiff.f)
+
+
+adult_results$DataSet <- "Adult"
+cord_results$DataSet <- "Cord"
+results <- rbind(adult_results, cord_results)
+save(results, file="probewise-ctct-comparision-adult-and-cord_may2018.rdata")
+
+head(cord_results)
+cord.p.tables<- spread(cord_results %>% select(-c(P.Val, FDR, ndiff.f)), CT2, ndiff.p)
+rownames(cord.p.tables)<- cord.p.tables$CT1
+cord.p.table<- cord.p.tables[1:6,3:8]
+cord.f.tables<- spread(cord_results %>% select(-c(FDR, ndiff.p, P.Val)), CT2, ndiff.f)
+rownames(cord.f.tables)<- cord.f.tables$CT1
+cord.f.table<- cord.f.tables[1:6,3:8]
+
+adult.p.tables<- spread(adult_results %>% select(-c(P.Val, FDR, ndiff.f)), CT2, ndiff.p)
+rownames(adult.p.tables)<- adult.p.tables$CT1
+adult.p.table<- adult.p.tables[3:8]
+adult.f.tables<- spread(adult_results %>% select(-c(FDR, ndiff.p, P.Val)), CT2, ndiff.f)
+rownames(adult.f.tables)<- adult.f.tables$CT1
+adult.f.table<- adult.f.tables[3:8]
+
+
+difs.p<- cord.p.table-adult.p.table
+difs.p["nRBC",]<- cord.p.tables[7,3:8]
+difs.p[,"nRBC"]<- cord.p.tables[,9]
+
+
+difs.f<- cord.f.table-adult.f.table
+difs.f["nRBC",]<- cord.f.tables[7,3:8]
+difs.f[,"nRBC"]<- cord.f.tables[,9]
+
+save(difs, file="pairwise_ct_differences_cord-adult.rdata")
+
+library(RColorBrewer)
+library(reshape2)
+library(ggplot2)
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+
+difs.upper<- get_upper_tri(difs)
+difs.melt<- melt(cbind(ID=rownames(difs.upper), difs.upper), na.rm=T)
+ggplot(difs.melt, aes(ID, variable))+
+  geom_tile(aes(fill=value), colour="white")+
+  scale_fill_gradient2(high="navy", low="firebrick3", mid="white", midpoint=0)+
+  theme_minimal()+
+  geom_text(aes(ID, variable, label = value), color = "black", size = 4)+
+  theme(legend.position = "none")
